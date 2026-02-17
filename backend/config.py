@@ -1,8 +1,7 @@
 from functools import lru_cache
-from typing import List, Optional
+from typing import List
 import os
 
-from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,7 +14,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./flowgen.db"
 
-    allowed_origins: List[AnyHttpUrl] = []
+    # Store as string so env var is not parsed as JSON (Render/Vercel set comma-separated URLs)
+    allowed_origins: str = ""
 
     rate_limit_requests_per_minute: int = 5
 
@@ -24,14 +24,11 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
     )
 
-    @field_validator("allowed_origins", mode="before")
-    @classmethod
-    def parse_allowed_origins(cls, v: Optional[str]):
-        if v is None or v == "":
+    def get_allowed_origins_list(self) -> List[str]:
+        """Parse ALLOWED_ORIGINS (comma-separated) into a list for CORS."""
+        if not self.allowed_origins or not self.allowed_origins.strip():
             return []
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+        return [x.strip() for x in self.allowed_origins.split(",") if x.strip()]
 
 
 @lru_cache()
